@@ -7,6 +7,15 @@ import type { AppState } from "./state";
 const StringSchema = z.string();
 const BooleanSchema = z.boolean();
 
+const HANDLED_CHANNELS = [
+  IpcChannel.SettingsGet,
+  IpcChannel.SettingsUpdate,
+  IpcChannel.ClipboardWrite,
+  IpcChannel.DraftSave,
+  IpcChannel.WindowSetExpanded,
+  IpcChannel.WindowQuit,
+] as const;
+
 export function registerIpc(state: AppState): void {
   ipcMain.handle(IpcChannel.SettingsGet, () => state.settings);
 
@@ -40,4 +49,10 @@ export function registerIpc(state: AppState): void {
     // cleanup in src/main/index.ts run. app.exit() would skip both.
     app.quit();
   });
+}
+
+export function unregisterIpc(): void {
+  for (const channel of HANDLED_CHANNELS) {
+    ipcMain.removeHandler(channel);
+  }
 }

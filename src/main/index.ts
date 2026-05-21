@@ -1,8 +1,8 @@
 import { app, BrowserWindow, ipcMain, type Tray } from "electron";
 import { loadSettings, saveSettings } from "./settings";
-import { createMainWindow } from "./window";
+import { createMainWindow, type WindowManager } from "./window";
 import { createTray } from "./tray";
-import { registerIpc } from "./ipc";
+import { registerIpc, unregisterIpc } from "./ipc";
 import { quitState } from "./quit-state";
 import { IpcChannel } from "../shared/ipc";
 import type { AppState } from "./state";
@@ -48,7 +48,7 @@ app.on("activate", () => {
   if (appState !== undefined) {
     appState.windowManager.window.showInactive();
   } else if (BrowserWindow.getAllWindows().length === 0) {
-    void bootstrap();
+    startBootstrap();
   }
 });
 
@@ -57,6 +57,9 @@ async function bootstrap(): Promise<void> {
   // appState is set, which would double-register IPC handlers and throw.
   if (bootstrapping || appState !== undefined) return;
   bootstrapping = true;
+
+  let windowManager: WindowManager | undefined;
+  let ipcRegistered = false;
   try {
     await app.whenReady();
 
@@ -65,17 +68,22 @@ async function bootstrap(): Promise<void> {
     }
 
     const settings = loadSettings();
-    const windowManager = createMainWindow(settings);
-    appState = { settings, windowManager };
+    windowManager = createMainWindow(settings);
+    const candidateState: AppState = { settings, windowManager };
 
     // IPC handlers must be registered before the renderer loads, otherwise
     // the renderer's init() races and its getSettings() invoke rejects with
     // "No handler registered", which throws out of init() before any event
     // listeners are wired — and the pad refuses to expand on hover.
-    registerIpc(appState);
+    registerIpc(candidateState);
+    ipcRegistered = true;
 
     await windowManager.load();
 
+    // Only publish appState after load() succeeds. If load() rejects (dev
+    // server unreachable, missing asset, etc.), the catch below tears down
+    // the partial state so a later activate event can retry bootstrap.
+    appState = candidateState;
     tray = createTray();
 
     // Windows shutdown / restart / logout does NOT emit app 'before-quit',
@@ -87,9 +95,22 @@ async function bootstrap(): Promise<void> {
 
     // pendingSecondInstance is replayed by the RendererReady listener once
     // the renderer has subscribed to ExpansionChanged.
+  } catch (err) {
+    if (ipcRegistered) unregisterIpc();
+    if (windowManager !== undefined && !windowManager.window.isDestroyed()) {
+      windowManager.window.destroy();
+    }
+    rendererReady = false;
+    throw err;
   } finally {
     bootstrapping = false;
   }
+}
+
+function startBootstrap(): void {
+  bootstrap().catch((err: unknown) => {
+    process.stderr.write(`[tame-pad] bootstrap failed: ${String(err)}\n`);
+  });
 }
 
 app.on("window-all-closed", () => {
@@ -133,4 +154,4 @@ app.on("before-quit", (event) => {
   gracefulShutdown();
 });
 
-void bootstrap();
+startBootstrap();
