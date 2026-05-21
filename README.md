@@ -32,7 +32,7 @@ LLM CLI エージェント向けの、画面端に常駐するフローティン
 
 ### 終了方法
 
-通常の `×` ボタンや `Alt+F4` ではアプリは終了しません。トレイアイコンを右クリックし、`終了` を選択してください。
+トレイアイコンを右クリックし、`終了` を選択してください。
 
 ## 設定
 
@@ -42,84 +42,6 @@ LLM CLI エージェント向けの、画面端に常駐するフローティン
 
 ```
 %APPDATA%\tame-pad\settings.json
-```
-
-各キーの説明は、設定ファイルの先頭にある `_comments` セクションに同梱されています (JSON 形式の都合上コメント不可のため、アプリが自動的に最新の説明文を書き出します)。
-
-主な設定項目:
-
-| キー                 | デフォルト | 説明                                                          |
-| -------------------- | ---------- | ------------------------------------------------------------- |
-| `convertNewlines`    | `true`     | コピー時に改行をスペース1個に変換するか                       |
-| `monitorIndex`       | `0`        | 表示するモニターの番号 (0=メイン / 1=サブ ...)                |
-| `expandedWidth`      | `320`      | 展開時のパネル幅 (px / 200〜900)                              |
-| `collapsedWidth`     | `8`        | 折りたたみ時の端ストリップ幅 (px / 2〜64)                     |
-| `opacityCollapsed`   | `0.35`     | 折りたたみ時の不透明度 (0.05〜1.0)                            |
-| `opacityExpanded`    | `1.0`      | 展開時の不透明度 (0.3〜1.0)                                   |
-| `transitionMs`       | `100`      | 展開/折りたたみアニメーション長 (ms / 0〜2000)                |
-| `expandHoverDelayMs` | `60`       | 画面端に触れてから展開するまでの遅延 (ms / 0〜2000)           |
-| `collapseDelayMs`    | `250`      | マウスがパネルを離れてから折りたたむまでの遅延 (ms / 0〜5000) |
-| `autosaveDebounceMs` | `400`      | 下書き自動保存のディレイ (ms / 50〜5000)                      |
-| `fontSizePx`         | `14`       | テキストエリアのフォントサイズ (px / 8〜48)                   |
-| `draftText`          | `""`       | 保存された下書き本文 (自動更新、手動編集は不要)               |
-
-設定値が範囲外だったり JSON が壊れていたりした場合はデフォルト値で起動します。
-
-## 開発
-
-### 必要環境
-
-- Node.js 22 以上
-- npm
-
-### セットアップ
-
-```bash
-npm ci
-```
-
-### 開発用に起動
-
-```bash
-npm run dev
-```
-
-`electron-vite` の HMR が有効な状態でアプリが起動します。
-
-### ビルド
-
-```bash
-npm run build        # electron-vite で main / preload / renderer をビルド
-npm run package:win  # Windows 向けインストーラー / ポータブル版を生成 (dist/)
-```
-
-### 品質チェック
-
-```bash
-npm run lint         # oxlint
-npm run lint:strict  # 警告も失敗扱い (CI と同じ)
-npm run typecheck    # main / renderer 両方の tsc --noEmit
-npm run format       # Prettier で整形
-npm run format:check # 整形差分が無いか確認
-```
-
-## 技術スタック
-
-- [Electron](https://www.electronjs.org/) — デスクトップアプリ基盤
-- [electron-vite](https://electron-vite.org/) — Vite ベースのビルドツール
-- [electron-builder](https://www.electron.build/) — Windows 向けパッケージング (NSIS / portable)
-- [TypeScript](https://www.typescriptlang.org/) — 型付き JavaScript
-- [Zod](https://zod.dev/) — 設定ファイルのスキーマ検証
-- [oxlint](https://oxc.rs/docs/guide/usage/linter) / [Prettier](https://prettier.io/) — リンター・フォーマッター
-
-## プロジェクト構成
-
-```
-src/
-├── main/       Electron メインプロセス (ウィンドウ管理 / トレイ / IPC / 設定永続化)
-├── preload/    プリロードスクリプト (renderer に安全に API を露出)
-├── renderer/   UI 層 (HTML / CSS / TypeScript)
-└── shared/     main と renderer で共有する型・スキーマ・IPC チャネル定義
 ```
 
 ## ライセンス
