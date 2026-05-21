@@ -93,8 +93,15 @@ async function bootstrap(): Promise<void> {
       gracefulShutdown();
     });
 
-    // pendingSecondInstance is replayed by the RendererReady listener once
-    // the renderer has subscribed to ExpansionChanged.
+    // RendererReady can land before this point (init() sends it after the
+    // microtask chain following did-finish-load, which is also when load()
+    // resolves — order is non-deterministic). The RendererReady handler
+    // skips focusAndExpand when appState is still undefined, so replay
+    // any queued second-instance here too.
+    if (pendingSecondInstance && rendererReady) {
+      pendingSecondInstance = false;
+      focusAndExpand(appState);
+    }
   } catch (err) {
     if (ipcRegistered) unregisterIpc();
     if (windowManager !== undefined && !windowManager.window.isDestroyed()) {
@@ -109,7 +116,12 @@ async function bootstrap(): Promise<void> {
 
 function startBootstrap(): void {
   bootstrap().catch((err: unknown) => {
+    // No window, no tray, no control surface — exit instead of leaving a
+    // headless process. On macOS the dock-activate retry path is moot once
+    // we've exited, but a permanent load failure (e.g. missing packaged
+    // asset) won't recover on retry anyway, so failing fast is correct.
     process.stderr.write(`[tame-pad] bootstrap failed: ${String(err)}\n`);
+    app.exit(1);
   });
 }
 
