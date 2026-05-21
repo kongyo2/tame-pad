@@ -17,6 +17,7 @@ const app = byId<HTMLDivElement>("app");
 const pad = byId<HTMLTextAreaElement>("pad");
 const copyBtn = byId<HTMLButtonElement>("copy");
 const clearBtn = byId<HTMLButtonElement>("clear");
+const closeBtn = byId<HTMLButtonElement>("close");
 const convertNewlinesEl = byId<HTMLInputElement>("convertNewlines");
 const toast = byId<HTMLDivElement>("toast");
 
@@ -158,6 +159,16 @@ function wireEvents(): void {
     // setRangeText pushes onto the textarea's undo stack so Ctrl+Z restores.
     pad.setSelectionRange(0, pad.value.length);
     pad.setRangeText("", 0, pad.value.length, "end");
+  });
+
+  closeBtn.addEventListener("click", () => {
+    // Manual override: collapse regardless of focus/IME guards that would
+    // otherwise block requestCollapse and strand the panel open.
+    if (isPadFocused()) pad.blur();
+    state.expandTimer = clearTimer(state.expandTimer);
+    state.collapseTimer = clearTimer(state.collapseTimer);
+    flushAutosave();
+    setExpandedNow(false);
   });
 
   convertNewlinesEl.addEventListener("change", () => {
