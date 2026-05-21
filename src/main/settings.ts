@@ -35,7 +35,16 @@ export function loadSettings(): Settings {
       // _comments を最新の SETTINGS_HELP で書き直すために再保存する。
       // 新しいキーが追加されたり説明が更新された後でも、ユーザーが
       // 「設定ファイルを開く」で最新のドキュメントを見られるようにする。
-      saveSettings(result.data);
+      // ただし読み取りが成功した以上、書き戻しが失敗してもパース済みの
+      // 設定で起動を続ける — read-only プロファイルやロック中ファイルで
+      // 既存ユーザー設定を破棄して DEFAULT_SETTINGS に巻き戻さないため。
+      try {
+        saveSettings(result.data);
+      } catch (err) {
+        process.stderr.write(
+          `[tame-pad] could not refresh settings _comments (continuing with parsed values): ${String(err)}\n`,
+        );
+      }
       return result.data;
     }
     process.stderr.write(
