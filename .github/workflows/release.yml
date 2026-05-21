@@ -65,16 +65,26 @@ jobs:
             Select-Object FullName, Length |
             Format-Table -AutoSize
 
+      - name: Verify installer artifact exists
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Path dist -Filter "*-Setup.exe" -ErrorAction SilentlyContinue
+          if (-not $setup) {
+            Write-Error "NSIS installer (*-Setup.exe) was not produced — aborting release."
+            exit 1
+          }
+          Write-Host "Found installer: $($setup.FullName)"
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: tame-pad ${{ steps.version.outputs.tag }}
           generate_release_notes: true
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
           files: |
-            dist/*.exe
-            dist/*.exe.blockmap
-            dist/latest.yml
+            dist/*-Setup.exe
+            dist/*-Setup.exe.blockmap
+            dist/*-portable.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
