@@ -7,6 +7,8 @@ import { quitState } from "./quit-state";
 import { IpcChannel } from "../shared/ipc";
 import type { AppState } from "./state";
 
+const DRAFT_QUERY_TIMEOUT_MS = 1500;
+
 if (!app.requestSingleInstanceLock()) {
   app.exit(0);
 }
@@ -130,20 +132,43 @@ app.on("window-all-closed", () => {
   // Without this handler, Electron would auto-quit on non-darwin.
 });
 
+// Ask the renderer for its authoritative pad value via IPC and wait for the
+// reply. Replaces the previous executeJavaScript approach which reached into
+// the renderer DOM (document.getElementById('pad').value) and tightly coupled
+// main to the renderer's HTML structure across the contextIsolation boundary.
+function queryRendererDraft(win: Electron.BrowserWindow): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const listener = (_event: Electron.IpcMainEvent, val: unknown): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (typeof val === "string") resolve(val);
+      else reject(new Error("invalid draft reply"));
+    };
+    ipcMain.once(IpcChannel.DraftReply, listener);
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      ipcMain.removeListener(IpcChannel.DraftReply, listener);
+      reject(new Error("draft reply timeout"));
+    }, DRAFT_QUERY_TIMEOUT_MS);
+    win.webContents.send(IpcChannel.DraftQuery);
+  });
+}
+
 async function flushDraftFromRenderer(state: AppState): Promise<void> {
   const win = state.windowManager.window;
   if (win.isDestroyed() || win.webContents.isDestroyed()) return;
   try {
-    const value: unknown = await win.webContents.executeJavaScript(
-      `(() => { const el = document.getElementById('pad'); return el ? el.value : ''; })()`,
-      true,
-    );
-    if (typeof value === "string" && value !== state.settings.draftText) {
+    const value = await queryRendererDraft(win);
+    if (value !== state.settings.draftText) {
       state.settings = { ...state.settings, draftText: value };
       saveSettings(state.settings);
     }
   } catch {
-    // Renderer may have already torn down; ignore.
+    // Renderer didn't reply in time, or already torn down — the existing
+    // beforeunload → saveDraft path in the renderer is the safety net.
   }
 }
 

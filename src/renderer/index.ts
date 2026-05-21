@@ -190,6 +190,12 @@ async function init(): Promise<void> {
   pad.value = state.settings.draftText;
   applyVisualSettings();
   wireEvents();
+  // Register the DraftQuery responder only AFTER pad.value has been
+  // populated from settings.draftText. If shutdown races with bootstrap
+  // and we registered earlier, we'd reply with an empty pad.value and
+  // main would overwrite the persisted draftText with "". A missing
+  // responder makes main time out and keep the persisted value instead.
+  window.tamepad.onDraftQuery(() => pad.value);
   window.tamepad.notifyReady();
 }
 

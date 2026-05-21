@@ -23,6 +23,11 @@ export const SETTINGS_HELP: Readonly<Record<string, string>> = {
   draftText: "保存された下書き本文 (アプリが自動で更新するので手動編集は不要)",
 };
 
+// .passthrough() で未知キーを保持する。.strict() だと手編集の typo (例:
+// convertNewline と s 抜け) や旧バージョンの残骸で全体パースが落ち、
+// loadSettings が DEFAULT_SETTINGS に巻き戻って draftText が消える。
+// 未知キーはファイルに残せばユーザーが気付きやすく、stderr で警告するのは
+// loadSettings 側の責務。
 export const SettingsSchema = z
   .object({
     // _comments はドキュメント目的の読み取り専用フィールド。値は無視され、
@@ -41,7 +46,7 @@ export const SettingsSchema = z
     fontSizePx: z.number().int().min(8).max(48).default(14),
     draftText: z.string().default(""),
   })
-  .strict();
+  .passthrough();
 
 export type Settings = z.infer<typeof SettingsSchema>;
 
