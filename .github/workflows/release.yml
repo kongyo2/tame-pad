@@ -39,6 +39,11 @@ jobs:
           echo "version=$version" >> $env:GITHUB_OUTPUT
           echo "tag=v$version" >> $env:GITHUB_OUTPUT
 
+      - name: Apply version override to package.json
+        if: inputs.version_override != ''
+        shell: pwsh
+        run: npm version ${{ inputs.version_override }} --no-git-tag-version --allow-same-version
+
       - name: Typecheck
         run: npm run typecheck
 

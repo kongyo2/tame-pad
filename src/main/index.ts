@@ -13,6 +13,22 @@ if (!app.requestSingleInstanceLock()) {
 let appState: AppState | undefined;
 let tray: Tray | undefined;
 
+// Register listeners that depend on lock ownership immediately so events
+// emitted during the async bootstrap (before appState is ready) aren't lost.
+app.on("second-instance", () => {
+  if (appState === undefined) return;
+  appState.windowManager.window.showInactive();
+  appState.windowManager.setExpanded(true);
+});
+
+app.on("activate", () => {
+  if (appState !== undefined) {
+    appState.windowManager.window.showInactive();
+  } else if (BrowserWindow.getAllWindows().length === 0) {
+    void bootstrap();
+  }
+});
+
 async function bootstrap(): Promise<void> {
   await app.whenReady();
 
@@ -26,21 +42,6 @@ async function bootstrap(): Promise<void> {
   tray = createTray();
 
   registerIpc(appState);
-
-  app.on("activate", () => {
-    if (appState !== undefined) {
-      appState.windowManager.window.showInactive();
-    } else if (BrowserWindow.getAllWindows().length === 0) {
-      void bootstrap();
-    }
-  });
-
-  app.on("second-instance", () => {
-    if (appState !== undefined) {
-      appState.windowManager.window.showInactive();
-      appState.windowManager.setExpanded(true);
-    }
-  });
 }
 
 app.on("window-all-closed", () => {

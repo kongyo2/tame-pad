@@ -50,7 +50,7 @@ export async function createMainWindow(
     show: false,
     type: "toolbar",
     webPreferences: {
-      preload: join(here, "../preload/index.mjs"),
+      preload: join(here, "../preload/index.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,

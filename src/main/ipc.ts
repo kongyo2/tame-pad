@@ -36,6 +36,8 @@ export function registerIpc(state: AppState): void {
   });
 
   ipcMain.handle(IpcChannel.WindowQuit, () => {
-    app.exit(0);
+    // app.quit() goes through before-quit so the draft flush and tray
+    // cleanup in src/main/index.ts run. app.exit() would skip both.
+    app.quit();
   });
 }

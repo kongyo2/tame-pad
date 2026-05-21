@@ -28,11 +28,12 @@ export default defineConfig({
       outDir: "out/preload",
       lib: {
         entry: resolve(here, "src/preload/index.ts"),
-        formats: ["es"],
-        fileName: () => "index.mjs",
+        // Electron requires CommonJS for sandboxed preload scripts.
+        formats: ["cjs"],
+        fileName: () => "index.cjs",
       },
       rollupOptions: {
-        output: { entryFileNames: "index.mjs" },
+        output: { entryFileNames: "index.cjs" },
       },
     },
     resolve: {
