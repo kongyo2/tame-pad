@@ -1,4 +1,5 @@
 import { app, Menu, nativeImage, shell, Tray } from "electron";
+import { dirname } from "node:path";
 import {
   TRAY_ICON_PNG_2X_BASE64,
   TRAY_ICON_PNG_BASE64,
@@ -17,12 +18,24 @@ export function createTray(): Tray {
   });
 
   const tray = new Tray(image);
-  tray.setToolTip("tame-pad");
+  const version = app.getVersion();
+  tray.setToolTip(`tame-pad v${version}`);
   const menu = Menu.buildFromTemplate([
     {
-      label: "設定ファイルを開く",
+      label: `tame-pad v${version}`,
+      enabled: false,
+    },
+    { type: "separator" },
+    {
+      label: "設定ファイルを開く (JSON / 各キーの説明は _comments に記載)",
       click: () => {
         void shell.openPath(getSettingsPath());
+      },
+    },
+    {
+      label: "設定フォルダを開く",
+      click: () => {
+        void shell.openPath(dirname(getSettingsPath()));
       },
     },
     { type: "separator" },

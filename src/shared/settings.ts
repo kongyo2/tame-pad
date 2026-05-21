@@ -1,7 +1,33 @@
 import { z } from "zod";
 
+// 設定ファイルにこのまま書き出される日本語の説明。JSON はコメントを
+// 持てないので、_comments キーとして同梱して「設定ファイルを開く」
+// 経由で編集する人がキーの意味を読めるようにする。
+export const SETTINGS_HELP: Readonly<Record<string, string>> = {
+  convertNewlines:
+    "コピー時に改行をスペース1つに変換する (true=有効 / false=そのままコピー)",
+  monitorIndex:
+    "表示するモニターの番号 (0=メイン / 1=サブ ... 範囲外ならメインに自動切替)",
+  expandedWidth: "展開時のパネル幅 (px / 200〜900)",
+  collapsedWidth: "折りたたみ時の端ストリップ幅 (px / 2〜64)",
+  opacityCollapsed:
+    "折りたたみ時の不透明度 (0.05〜1.0 / 数値が小さいほど薄くなる)",
+  opacityExpanded: "展開時の不透明度 (0.3〜1.0)",
+  transitionMs: "展開/折りたたみアニメーションの長さ (ms / 0〜2000)",
+  expandHoverDelayMs:
+    "マウスが画面端に触れてから展開するまでの遅延 (ms / 0〜2000)",
+  collapseDelayMs:
+    "マウスがパネルを離れてから折りたたむまでの遅延 (ms / 0〜5000)",
+  autosaveDebounceMs: "下書きの自動保存ディレイ (ms / 50〜5000)",
+  fontSizePx: "テキストエリアのフォントサイズ (px / 8〜48)",
+  draftText: "保存された下書き本文 (アプリが自動で更新するので手動編集は不要)",
+};
+
 export const SettingsSchema = z
   .object({
+    // _comments はドキュメント目的の読み取り専用フィールド。値は無視され、
+    // 保存時に常に SETTINGS_HELP の最新版で上書きされる。
+    _comments: z.unknown().optional(),
     convertNewlines: z.boolean().default(true),
     monitorIndex: z.number().int().min(0).default(0),
     expandedWidth: z.number().int().min(200).max(900).default(320),

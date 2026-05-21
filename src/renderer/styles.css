@@ -165,6 +165,28 @@ button:active {
   cursor: pointer;
 }
 
+.settings-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--button-bg);
+  color: var(--muted);
+  font-size: 10px;
+  cursor: help;
+  user-select: none;
+}
+
+.settings-hint:hover {
+  background: var(--button-hover);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .toast {
   position: absolute;
   bottom: 12px;

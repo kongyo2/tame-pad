@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   DEFAULT_SETTINGS,
+  SETTINGS_HELP,
   SettingsPatchSchema,
   SettingsSchema,
   type Settings,
@@ -30,7 +31,13 @@ export function loadSettings(): Settings {
     const raw = readFileSync(filePath, "utf8");
     const parsed: unknown = JSON.parse(raw);
     const result = SettingsSchema.safeParse(parsed);
-    if (result.success) return result.data;
+    if (result.success) {
+      // _comments を最新の SETTINGS_HELP で書き直すために再保存する。
+      // 新しいキーが追加されたり説明が更新された後でも、ユーザーが
+      // 「設定ファイルを開く」で最新のドキュメントを見られるようにする。
+      saveSettings(result.data);
+      return result.data;
+    }
     process.stderr.write(
       `[tame-pad] invalid settings file, falling back to defaults: ${JSON.stringify(result.error.flatten())}\n`,
     );
@@ -46,7 +53,12 @@ export function loadSettings(): Settings {
 export function saveSettings(settings: Settings): void {
   const filePath = getSettingsPath();
   ensureDir(filePath);
-  writeFileSync(filePath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+  // _comments を先頭に置きつつ、ユーザーが手動で書き換えた古い説明は
+  // 常に上書きする。書き戻し時にキーの並び順が安定するよう、_comments を
+  // 明示的に先頭にしている。
+  const { _comments: _ignored, ...rest } = settings;
+  const withHelp = { _comments: SETTINGS_HELP, ...rest };
+  writeFileSync(filePath, `${JSON.stringify(withHelp, null, 2)}\n`, "utf8");
 }
 
 export function mergeSettings(current: Settings, rawPatch: unknown): Settings {
