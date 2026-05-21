@@ -1,9 +1,10 @@
-import { app, BrowserWindow, type Tray } from "electron";
+import { app, BrowserWindow, ipcMain, type Tray } from "electron";
 import { loadSettings, saveSettings } from "./settings";
 import { createMainWindow } from "./window";
 import { createTray } from "./tray";
 import { registerIpc } from "./ipc";
 import { quitState } from "./quit-state";
+import { IpcChannel } from "../shared/ipc";
 import type { AppState } from "./state";
 
 if (!app.requestSingleInstanceLock()) {
@@ -14,6 +15,7 @@ let appState: AppState | undefined;
 let tray: Tray | undefined;
 let bootstrapping = false;
 let pendingSecondInstance = false;
+let rendererReady = false;
 
 function focusAndExpand(state: AppState): void {
   state.windowManager.window.showInactive();
@@ -23,12 +25,23 @@ function focusAndExpand(state: AppState): void {
 // Register listeners that depend on lock ownership immediately so events
 // emitted during the async bootstrap (before appState is ready) aren't lost.
 app.on("second-instance", () => {
-  if (appState === undefined) {
-    // Queue the intent; bootstrap() replays it once appState is ready.
+  // Queue until the renderer has subscribed to ExpansionChanged. Otherwise
+  // focusAndExpand's broadcast lands before onExpansionChanged is wired and
+  // main/renderer expansion state drifts apart during startup.
+  if (appState === undefined || !rendererReady) {
     pendingSecondInstance = true;
     return;
   }
   focusAndExpand(appState);
+});
+
+ipcMain.on(IpcChannel.RendererReady, () => {
+  if (rendererReady) return;
+  rendererReady = true;
+  if (pendingSecondInstance && appState !== undefined) {
+    pendingSecondInstance = false;
+    focusAndExpand(appState);
+  }
 });
 
 app.on("activate", () => {
@@ -72,10 +85,8 @@ async function bootstrap(): Promise<void> {
       gracefulShutdown();
     });
 
-    if (pendingSecondInstance) {
-      pendingSecondInstance = false;
-      focusAndExpand(appState);
-    }
+    // pendingSecondInstance is replayed by the RendererReady listener once
+    // the renderer has subscribed to ExpansionChanged.
   } finally {
     bootstrapping = false;
   }
