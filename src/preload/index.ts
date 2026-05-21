@@ -23,6 +23,11 @@ const api: TamepadApi = {
   notifyReady: () => {
     ipcRenderer.send(IpcChannel.RendererReady);
   },
+  onDraftQuery: (provide) => {
+    ipcRenderer.on(IpcChannel.DraftQuery, () => {
+      ipcRenderer.send(IpcChannel.DraftReply, provide());
+    });
+  },
 };
 
 contextBridge.exposeInMainWorld("tamepad", api);

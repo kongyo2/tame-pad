@@ -9,4 +9,5 @@ export type TamepadApi = {
   readonly quit: () => Promise<void>;
   readonly onExpansionChanged: (cb: (expanded: boolean) => void) => void;
   readonly notifyReady: () => void;
+  readonly onDraftQuery: (provide: () => string) => void;
 };
