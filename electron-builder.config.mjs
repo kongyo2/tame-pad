@@ -15,7 +15,6 @@ export default {
       { target: "portable", arch: ["x64"] },
     ],
     icon: "build/icon.ico",
-    artifactName: "${productName}-${version}-${arch}-${os}.${ext}",
   },
   nsis: {
     oneClick: false,
@@ -24,6 +23,12 @@ export default {
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
     shortcutName: "tame-pad",
+    // Distinct filename so the NSIS installer is never overwritten by the
+    // portable build (both produce .exe and otherwise collide).
+    artifactName: "${productName}-${version}-${arch}-Setup.${ext}",
+  },
+  portable: {
+    artifactName: "${productName}-${version}-${arch}-portable.${ext}",
   },
   publish: null,
 };
