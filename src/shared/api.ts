@@ -7,4 +7,5 @@ export type TamepadApi = {
   readonly saveDraft: (text: string) => Promise<void>;
   readonly setExpanded: (expanded: boolean) => Promise<void>;
   readonly quit: () => Promise<void>;
+  readonly onExpansionChanged: (cb: (expanded: boolean) => void) => void;
 };

@@ -167,6 +167,21 @@ function wireEvents(): void {
   });
 
   window.addEventListener("beforeunload", flushAutosave);
+
+  // Main process broadcasts when it initiates an expansion change
+  // (window blur, second-instance). Sync classList without calling back,
+  // otherwise hover mouseenter early-returns on isExpanded() === true.
+  window.tamepad.onExpansionChanged((expanded) => {
+    state.expandTimer = clearTimer(state.expandTimer);
+    state.collapseTimer = clearTimer(state.collapseTimer);
+    if (expanded) {
+      app.classList.remove("collapsed");
+      app.classList.add("expanded");
+    } else {
+      app.classList.remove("expanded");
+      app.classList.add("collapsed");
+    }
+  });
 }
 
 async function init(): Promise<void> {

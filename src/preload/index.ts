@@ -15,6 +15,11 @@ const api: TamepadApi = {
   setExpanded: (expanded: boolean) =>
     ipcRenderer.invoke(IpcChannel.WindowSetExpanded, expanded) as Promise<void>,
   quit: () => ipcRenderer.invoke(IpcChannel.WindowQuit) as Promise<void>,
+  onExpansionChanged: (cb) => {
+    ipcRenderer.on(IpcChannel.ExpansionChanged, (_event, expanded: boolean) => {
+      cb(expanded);
+    });
+  },
 };
 
 contextBridge.exposeInMainWorld("tamepad", api);

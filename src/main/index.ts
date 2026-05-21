@@ -12,13 +12,23 @@ if (!app.requestSingleInstanceLock()) {
 
 let appState: AppState | undefined;
 let tray: Tray | undefined;
+let bootstrapping = false;
+let pendingSecondInstance = false;
+
+function focusAndExpand(state: AppState): void {
+  state.windowManager.window.showInactive();
+  state.windowManager.setExpanded(true, true);
+}
 
 // Register listeners that depend on lock ownership immediately so events
 // emitted during the async bootstrap (before appState is ready) aren't lost.
 app.on("second-instance", () => {
-  if (appState === undefined) return;
-  appState.windowManager.window.showInactive();
-  appState.windowManager.setExpanded(true);
+  if (appState === undefined) {
+    // Queue the intent; bootstrap() replays it once appState is ready.
+    pendingSecondInstance = true;
+    return;
+  }
+  focusAndExpand(appState);
 });
 
 app.on("activate", () => {
@@ -30,18 +40,38 @@ app.on("activate", () => {
 });
 
 async function bootstrap(): Promise<void> {
-  await app.whenReady();
+  // Re-entry guard: activate can fire during initial bootstrap before
+  // appState is set, which would double-register IPC handlers and throw.
+  if (bootstrapping || appState !== undefined) return;
+  bootstrapping = true;
+  try {
+    await app.whenReady();
 
-  if (process.platform === "win32") {
-    app.setAppUserModelId("com.kongyo2.tame-pad");
+    if (process.platform === "win32") {
+      app.setAppUserModelId("com.kongyo2.tame-pad");
+    }
+
+    const settings = loadSettings();
+    const windowManager = await createMainWindow(settings);
+    appState = { settings, windowManager };
+    tray = createTray();
+
+    registerIpc(appState);
+
+    // Windows shutdown / restart / logout does NOT emit app 'before-quit',
+    // but BrowserWindow emits 'session-end' on the platform. Best-effort
+    // flush via the same path so unsaved draft loss is minimized.
+    appState.windowManager.window.on("session-end", () => {
+      gracefulShutdown();
+    });
+
+    if (pendingSecondInstance) {
+      pendingSecondInstance = false;
+      focusAndExpand(appState);
+    }
+  } finally {
+    bootstrapping = false;
   }
-
-  const settings = loadSettings();
-  const windowManager = await createMainWindow(settings);
-  appState = { settings, windowManager };
-  tray = createTray();
-
-  registerIpc(appState);
 }
 
 app.on("window-all-closed", () => {
@@ -66,9 +96,8 @@ async function flushDraftFromRenderer(state: AppState): Promise<void> {
   }
 }
 
-app.on("before-quit", (event) => {
+function gracefulShutdown(): void {
   if (quitState.quitting) return;
-  event.preventDefault();
   quitState.quitting = true;
   const work = appState ? flushDraftFromRenderer(appState) : Promise.resolve();
   void work.finally(() => {
@@ -78,6 +107,12 @@ app.on("before-quit", (event) => {
     }
     app.quit();
   });
+}
+
+app.on("before-quit", (event) => {
+  if (quitState.quitting) return;
+  event.preventDefault();
+  gracefulShutdown();
 });
 
 void bootstrap();

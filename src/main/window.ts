@@ -2,6 +2,7 @@ import { BrowserWindow, screen, type Display } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { Settings } from "../shared/settings";
+import { IpcChannel } from "../shared/ipc";
 import { quitState } from "./quit-state";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -13,7 +14,7 @@ function pickDisplay(monitorIndex: number): Display {
 
 export type WindowManager = {
   window: BrowserWindow;
-  setExpanded(expanded: boolean): void;
+  setExpanded(expanded: boolean, broadcast?: boolean): void;
   isExpanded(): boolean;
   applySettings(next: Settings): void;
 };
@@ -91,10 +92,13 @@ export async function createMainWindow(
     });
   };
 
-  const setExpanded = (next: boolean): void => {
+  const setExpanded = (next: boolean, broadcast: boolean = false): void => {
     if (expanded === next) return;
     expanded = next;
     reposition(next ? current.expandedWidth : current.collapsedWidth);
+    if (broadcast && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(IpcChannel.ExpansionChanged, next);
+    }
   };
 
   const applySettings = (next: Settings): void => {
@@ -109,7 +113,9 @@ export async function createMainWindow(
   };
 
   win.on("blur", () => {
-    setExpanded(false);
+    // Renderer is told so its classList stays in sync; otherwise hover
+    // mouseenter early-returns and the pad refuses to re-expand.
+    setExpanded(false, true);
   });
 
   return {
