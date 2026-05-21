@@ -44,6 +44,11 @@ function clearTimer(handle: number | undefined): undefined {
   return undefined;
 }
 
+function clearExpansionTimers(): void {
+  state.expandTimer = clearTimer(state.expandTimer);
+  state.collapseTimer = clearTimer(state.collapseTimer);
+}
+
 function applyVisualSettings(): void {
   const root = document.documentElement;
   root.style.setProperty("--font-size-px", `${state.settings.fontSizePx}px`);
@@ -58,7 +63,7 @@ function applyVisualSettings(): void {
   root.style.setProperty("--transition-ms", `${state.settings.transitionMs}ms`);
 }
 
-function setExpandedNow(expanded: boolean): void {
+function applyExpandedClass(expanded: boolean): void {
   if (expanded) {
     app.classList.remove("collapsed");
     app.classList.add("expanded");
@@ -66,6 +71,10 @@ function setExpandedNow(expanded: boolean): void {
     app.classList.remove("expanded");
     app.classList.add("collapsed");
   }
+}
+
+function setExpandedNow(expanded: boolean): void {
+  applyExpandedClass(expanded);
   void window.tamepad.setExpanded(expanded);
 }
 
@@ -75,6 +84,12 @@ function isExpanded(): boolean {
 
 function isPadFocused(): boolean {
   return document.activeElement === pad;
+}
+
+// Collapse must be suppressed while the textarea is focused or an IME
+// composition is mid-flight; otherwise the panel closes under the user.
+function shouldHoldOpen(): boolean {
+  return isPadFocused() || state.imeComposing;
 }
 
 function requestExpand(): void {
@@ -88,10 +103,10 @@ function requestExpand(): void {
 
 function requestCollapse(): void {
   state.expandTimer = clearTimer(state.expandTimer);
-  if (isPadFocused() || state.imeComposing) return;
+  if (shouldHoldOpen()) return;
   state.collapseTimer = clearTimer(state.collapseTimer);
   state.collapseTimer = window.setTimeout(() => {
-    if (isPadFocused() || state.imeComposing) return;
+    if (shouldHoldOpen()) return;
     setExpandedNow(false);
   }, state.settings.collapseDelayMs);
 }
@@ -165,8 +180,7 @@ function wireEvents(): void {
     // Manual override: collapse regardless of focus/IME guards that would
     // otherwise block requestCollapse and strand the panel open.
     if (isPadFocused()) pad.blur();
-    state.expandTimer = clearTimer(state.expandTimer);
-    state.collapseTimer = clearTimer(state.collapseTimer);
+    clearExpansionTimers();
     flushAutosave();
     setExpandedNow(false);
   });
@@ -183,15 +197,8 @@ function wireEvents(): void {
   // (window blur, second-instance). Sync classList without calling back,
   // otherwise hover mouseenter early-returns on isExpanded() === true.
   window.tamepad.onExpansionChanged((expanded) => {
-    state.expandTimer = clearTimer(state.expandTimer);
-    state.collapseTimer = clearTimer(state.collapseTimer);
-    if (expanded) {
-      app.classList.remove("collapsed");
-      app.classList.add("expanded");
-    } else {
-      app.classList.remove("expanded");
-      app.classList.add("collapsed");
-    }
+    clearExpansionTimers();
+    applyExpandedClass(expanded);
   });
 }
 
