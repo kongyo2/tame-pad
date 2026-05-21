@@ -30,10 +30,17 @@
           <button id="clear" type="button">Clear</button>
         </div>
         <div class="settings">
-          <label>
+          <label
+            title="ONにするとCopy時に改行をスペース1つに置き換えます。CLIエージェントへ1行で貼り付けたいときに便利。"
+          >
             <input type="checkbox" id="convertNewlines" />
-            <span>改行を変換</span>
+            <span>改行をスペースに変換</span>
           </label>
+          <span
+            class="settings-hint"
+            title="詳しい設定はトレイアイコン → 「設定ファイルを開く」から"
+            >?</span
+          >
         </div>
         <div id="toast" class="toast" role="status" aria-live="polite">
           コピーしました
