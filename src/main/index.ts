@@ -52,11 +52,18 @@ async function bootstrap(): Promise<void> {
     }
 
     const settings = loadSettings();
-    const windowManager = await createMainWindow(settings);
+    const windowManager = createMainWindow(settings);
     appState = { settings, windowManager };
-    tray = createTray();
 
+    // IPC handlers must be registered before the renderer loads, otherwise
+    // the renderer's init() races and its getSettings() invoke rejects with
+    // "No handler registered", which throws out of init() before any event
+    // listeners are wired — and the pad refuses to expand on hover.
     registerIpc(appState);
+
+    await windowManager.load();
+
+    tray = createTray();
 
     // Windows shutdown / restart / logout does NOT emit app 'before-quit',
     // but BrowserWindow emits 'session-end' on the platform. Best-effort
