@@ -17,11 +17,10 @@ export type WindowManager = {
   setExpanded(expanded: boolean, broadcast?: boolean): void;
   isExpanded(): boolean;
   applySettings(next: Settings): void;
+  load(): Promise<void>;
 };
 
-export async function createMainWindow(
-  settings: Settings,
-): Promise<WindowManager> {
+export function createMainWindow(settings: Settings): WindowManager {
   let current = settings;
   const display = pickDisplay(current.monitorIndex);
   const workArea = display.workArea;
@@ -71,14 +70,15 @@ export async function createMainWindow(
     }
   });
 
-  const devUrl = process.env["ELECTRON_RENDERER_URL"];
-  if (devUrl !== undefined && devUrl !== "") {
-    await win.loadURL(devUrl);
-  } else {
-    await win.loadFile(join(here, "../renderer/index.html"));
-  }
-
-  win.showInactive();
+  const load = async (): Promise<void> => {
+    const devUrl = process.env["ELECTRON_RENDERER_URL"];
+    if (devUrl !== undefined && devUrl !== "") {
+      await win.loadURL(devUrl);
+    } else {
+      await win.loadFile(join(here, "../renderer/index.html"));
+    }
+    win.showInactive();
+  };
 
   let expanded = false;
   const reposition = (width: number): void => {
@@ -123,5 +123,6 @@ export async function createMainWindow(
     setExpanded,
     isExpanded: () => expanded,
     applySettings,
+    load,
   };
 }

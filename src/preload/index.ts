@@ -20,6 +20,9 @@ const api: TamepadApi = {
       cb(expanded);
     });
   },
+  notifyReady: () => {
+    ipcRenderer.send(IpcChannel.RendererReady);
+  },
 };
 
 contextBridge.exposeInMainWorld("tamepad", api);

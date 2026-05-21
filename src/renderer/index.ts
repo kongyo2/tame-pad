@@ -190,6 +190,7 @@ async function init(): Promise<void> {
   pad.value = state.settings.draftText;
   applyVisualSettings();
   wireEvents();
+  window.tamepad.notifyReady();
 }
 
 void init();

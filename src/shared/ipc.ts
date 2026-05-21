@@ -9,6 +9,11 @@ export const IpcChannel = {
   // (e.g. window blur, second-instance) so the renderer can sync its
   // classList without calling back into main.
   ExpansionChanged: "window:expansion-changed",
+  // Renderer → main, fired once init() has wired all listeners (including
+  // the ExpansionChanged subscriber). Main gates second-instance focus on
+  // this so an early replay can't broadcast into a renderer that hasn't
+  // subscribed yet.
+  RendererReady: "renderer:ready",
 } as const;
 
 export type IpcChannelValue = (typeof IpcChannel)[keyof typeof IpcChannel];

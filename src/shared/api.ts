@@ -8,4 +8,5 @@ export type TamepadApi = {
   readonly setExpanded: (expanded: boolean) => Promise<void>;
   readonly quit: () => Promise<void>;
   readonly onExpansionChanged: (cb: (expanded: boolean) => void) => void;
+  readonly notifyReady: () => void;
 };
