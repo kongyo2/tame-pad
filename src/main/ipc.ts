@@ -13,6 +13,7 @@ const HANDLED_CHANNELS = [
   IpcChannel.ClipboardWrite,
   IpcChannel.DraftSave,
   IpcChannel.WindowSetExpanded,
+  IpcChannel.WindowSetPinned,
   IpcChannel.WindowQuit,
 ] as const;
 
@@ -42,6 +43,11 @@ export function registerIpc(state: AppState): void {
   ipcMain.handle(IpcChannel.WindowSetExpanded, (_event, raw: unknown) => {
     const expanded = BooleanSchema.parse(raw);
     state.windowManager.setExpanded(expanded);
+  });
+
+  ipcMain.handle(IpcChannel.WindowSetPinned, (_event, raw: unknown) => {
+    const pinned = BooleanSchema.parse(raw);
+    state.windowManager.setPinned(pinned);
   });
 
   ipcMain.handle(IpcChannel.WindowQuit, () => {

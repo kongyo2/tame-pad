@@ -16,6 +16,8 @@ export type WindowManager = {
   window: BrowserWindow;
   setExpanded(expanded: boolean, broadcast?: boolean): void;
   isExpanded(): boolean;
+  setPinned(pinned: boolean): void;
+  isPinned(): boolean;
   applySettings(next: Settings): void;
   load(): Promise<void>;
 };
@@ -81,6 +83,7 @@ export function createMainWindow(settings: Settings): WindowManager {
   };
 
   let expanded = false;
+  let pinned = false;
   const reposition = (width: number): void => {
     const targetDisplay = pickDisplay(current.monitorIndex);
     const wa = targetDisplay.workArea;
@@ -113,6 +116,9 @@ export function createMainWindow(settings: Settings): WindowManager {
   };
 
   win.on("blur", () => {
+    // Pin overrides blur-collapse: the user explicitly asked to keep the
+    // panel open even when focus moves to another app.
+    if (pinned) return;
     // Renderer is told so its classList stays in sync; otherwise hover
     // mouseenter early-returns and the pad refuses to re-expand.
     setExpanded(false, true);
@@ -122,6 +128,10 @@ export function createMainWindow(settings: Settings): WindowManager {
     window: win,
     setExpanded,
     isExpanded: () => expanded,
+    setPinned: (next: boolean) => {
+      pinned = next;
+    },
+    isPinned: () => pinned,
     applySettings,
     load,
   };

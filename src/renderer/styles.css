@@ -91,6 +91,13 @@ body {
   user-select: none;
 }
 
+.title-bar-controls {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .close-btn {
   flex: 0 0 auto;
   width: 20px;
@@ -116,6 +123,50 @@ body {
 
 .close-btn:active {
   background: var(--button-active);
+}
+
+.pin-btn {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0;
+  opacity: 0.45;
+  filter: grayscale(1);
+  transition:
+    background 80ms ease,
+    border-color 80ms ease,
+    opacity 100ms ease,
+    filter 100ms ease;
+}
+
+.pin-btn:hover {
+  background: var(--button-hover);
+  border-color: var(--accent);
+  opacity: 0.85;
+}
+
+.pin-btn:active {
+  background: var(--button-active);
+}
+
+.pin-btn.pinned {
+  opacity: 1;
+  filter: none;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.pin-btn.pinned:hover {
+  background: var(--accent);
 }
 
 .textarea-wrap {

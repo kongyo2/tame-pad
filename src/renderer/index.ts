@@ -18,6 +18,7 @@ const pad = byId<HTMLTextAreaElement>("pad");
 const copyBtn = byId<HTMLButtonElement>("copy");
 const clearBtn = byId<HTMLButtonElement>("clear");
 const closeBtn = byId<HTMLButtonElement>("close");
+const pinBtn = byId<HTMLButtonElement>("pin");
 const convertNewlinesEl = byId<HTMLInputElement>("convertNewlines");
 const toast = byId<HTMLDivElement>("toast");
 
@@ -28,6 +29,7 @@ type RuntimeState = {
   saveTimer: number | undefined;
   toastTimer: number | undefined;
   imeComposing: boolean;
+  pinned: boolean;
 };
 
 const state: RuntimeState = {
@@ -37,6 +39,7 @@ const state: RuntimeState = {
   saveTimer: undefined,
   toastTimer: undefined,
   imeComposing: false,
+  pinned: false,
 };
 
 function clearTimer(handle: number | undefined): undefined {
@@ -86,10 +89,26 @@ function isPadFocused(): boolean {
   return document.activeElement === pad;
 }
 
-// Collapse must be suppressed while the textarea is focused or an IME
-// composition is mid-flight; otherwise the panel closes under the user.
+// Collapse must be suppressed while the textarea is focused, an IME
+// composition is mid-flight, or the user has pinned the panel open.
 function shouldHoldOpen(): boolean {
-  return isPadFocused() || state.imeComposing;
+  return state.pinned || isPadFocused() || state.imeComposing;
+}
+
+function applyPinnedUi(pinned: boolean): void {
+  pinBtn.classList.toggle("pinned", pinned);
+  pinBtn.setAttribute("aria-pressed", pinned ? "true" : "false");
+  pinBtn.title = pinned ? "ピン留め解除" : "ピン留め (展開を固定)";
+}
+
+function setPinned(pinned: boolean): void {
+  if (state.pinned === pinned) return;
+  state.pinned = pinned;
+  applyPinnedUi(pinned);
+  void window.tamepad.setPinned(pinned);
+  if (!pinned && !document.body.matches(":hover") && !isPadFocused()) {
+    requestCollapse();
+  }
 }
 
 function requestExpand(): void {
@@ -177,12 +196,17 @@ function wireEvents(): void {
   });
 
   closeBtn.addEventListener("click", () => {
-    // Manual override: collapse regardless of focus/IME guards that would
-    // otherwise block requestCollapse and strand the panel open.
+    // Manual override: collapse regardless of focus/IME/pin guards that
+    // would otherwise block requestCollapse and strand the panel open.
+    if (state.pinned) setPinned(false);
     if (isPadFocused()) pad.blur();
     clearExpansionTimers();
     flushAutosave();
     setExpandedNow(false);
+  });
+
+  pinBtn.addEventListener("click", () => {
+    setPinned(!state.pinned);
   });
 
   convertNewlinesEl.addEventListener("change", () => {
