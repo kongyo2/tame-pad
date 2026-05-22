@@ -16,15 +16,27 @@
       <div class="panel" role="region" aria-label="tame-pad">
         <div class="title-bar">
           <span class="title-bar-label">tame-pad</span>
-          <button
-            id="close"
-            type="button"
-            class="close-btn"
-            aria-label="閉じる"
-            title="閉じる (折りたたみ)"
-          >
-            ×
-          </button>
+          <div class="title-bar-controls">
+            <button
+              id="pin"
+              type="button"
+              class="pin-btn"
+              aria-label="ピン留め"
+              aria-pressed="false"
+              title="ピン留め (展開を固定)"
+            >
+              📌
+            </button>
+            <button
+              id="close"
+              type="button"
+              class="close-btn"
+              aria-label="閉じる"
+              title="閉じる (折りたたみ)"
+            >
+              ×
+            </button>
+          </div>
         </div>
         <div class="textarea-wrap">
           <textarea
