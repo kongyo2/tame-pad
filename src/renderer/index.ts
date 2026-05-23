@@ -19,6 +19,7 @@ const copyBtn = byId<HTMLButtonElement>("copy");
 const clearBtn = byId<HTMLButtonElement>("clear");
 const closeBtn = byId<HTMLButtonElement>("close");
 const pinBtn = byId<HTMLButtonElement>("pin");
+const snoozeBtn = byId<HTMLButtonElement>("snooze");
 const convertNewlinesEl = byId<HTMLInputElement>("convertNewlines");
 const toast = byId<HTMLDivElement>("toast");
 
@@ -30,6 +31,7 @@ type RuntimeState = {
   toastTimer: number | undefined;
   imeComposing: boolean;
   pinned: boolean;
+  snoozed: boolean;
 };
 
 const state: RuntimeState = {
@@ -40,6 +42,7 @@ const state: RuntimeState = {
   toastTimer: undefined,
   imeComposing: false,
   pinned: false,
+  snoozed: false,
 };
 
 function clearTimer(handle: number | undefined): undefined {
@@ -111,8 +114,39 @@ function setPinned(pinned: boolean): void {
   }
 }
 
+function applySnoozedUi(snoozed: boolean): void {
+  app.classList.toggle("snoozed", snoozed);
+  snoozeBtn.classList.toggle("snoozed", snoozed);
+  snoozeBtn.setAttribute("aria-pressed", snoozed ? "true" : "false");
+  snoozeBtn.title = snoozed
+    ? "スヌーズ中 (解除はトレイから)"
+    : "スヌーズ (クリックスルー / 解除はトレイから)";
+}
+
+// Mirror snooze state without invoking the IPC again. Used both for
+// renderer-initiated toggles and for main-initiated broadcasts (tray menu).
+function applySnoozedState(snoozed: boolean): void {
+  state.snoozed = snoozed;
+  applySnoozedUi(snoozed);
+  if (snoozed) {
+    // Snooze and pin are opposites; main has already cleared its pin
+    // state. Mirror that in the renderer so the UI stays consistent.
+    if (state.pinned) {
+      state.pinned = false;
+      applyPinnedUi(false);
+    }
+    clearExpansionTimers();
+    applyExpandedClass(false);
+  }
+}
+
 function requestExpand(): void {
   state.collapseTimer = clearTimer(state.collapseTimer);
+  // Snooze means "stay collapsed and ignore mouse"; the window is
+  // already click-through, but a queued mouseenter (from before the
+  // ignore took effect) can still land here. Short-circuit so the
+  // panel doesn't briefly pop open.
+  if (state.snoozed) return;
   if (isExpanded()) return;
   state.expandTimer = clearTimer(state.expandTimer);
   state.expandTimer = window.setTimeout(() => {
@@ -209,6 +243,19 @@ function wireEvents(): void {
     setPinned(!state.pinned);
   });
 
+  snoozeBtn.addEventListener("click", () => {
+    // Blur first: leaving focus on the (now invisible) pad would route
+    // subsequent keystrokes into a textarea the user can't see, mirroring
+    // the close-button rationale.
+    if (isPadFocused()) pad.blur();
+    // Sequence matters: collapse + clear-pin (via applySnoozedState) must
+    // happen before the IPC so the window is in a known state when main
+    // calls setIgnoreMouseEvents(true).
+    applySnoozedState(true);
+    flushAutosave();
+    void window.tamepad.setSnoozed(true);
+  });
+
   convertNewlinesEl.addEventListener("change", () => {
     const next = convertNewlinesEl.checked;
     state.settings = { ...state.settings, convertNewlines: next };
@@ -223,6 +270,13 @@ function wireEvents(): void {
   window.tamepad.onExpansionChanged((expanded) => {
     clearExpansionTimers();
     applyExpandedClass(expanded);
+  });
+
+  // Main broadcasts on tray toggle (the only place snooze can be turned
+  // off, since the click-through window can't receive the title-bar
+  // button click). Mirror state without calling back to avoid an IPC loop.
+  window.tamepad.onSnoozeChanged((snoozed) => {
+    applySnoozedState(snoozed);
   });
 }
 

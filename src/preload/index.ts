@@ -16,10 +16,17 @@ const api: TamepadApi = {
     ipcRenderer.invoke(IpcChannel.WindowSetExpanded, expanded) as Promise<void>,
   setPinned: (pinned: boolean) =>
     ipcRenderer.invoke(IpcChannel.WindowSetPinned, pinned) as Promise<void>,
+  setSnoozed: (snoozed: boolean) =>
+    ipcRenderer.invoke(IpcChannel.WindowSetSnoozed, snoozed) as Promise<void>,
   quit: () => ipcRenderer.invoke(IpcChannel.WindowQuit) as Promise<void>,
   onExpansionChanged: (cb) => {
     ipcRenderer.on(IpcChannel.ExpansionChanged, (_event, expanded: boolean) => {
       cb(expanded);
+    });
+  },
+  onSnoozeChanged: (cb) => {
+    ipcRenderer.on(IpcChannel.SnoozeChanged, (_event, snoozed: boolean) => {
+      cb(snoozed);
     });
   },
   notifyReady: () => {

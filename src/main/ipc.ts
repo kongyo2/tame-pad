@@ -14,6 +14,7 @@ const HANDLED_CHANNELS = [
   IpcChannel.DraftSave,
   IpcChannel.WindowSetExpanded,
   IpcChannel.WindowSetPinned,
+  IpcChannel.WindowSetSnoozed,
   IpcChannel.WindowQuit,
 ] as const;
 
@@ -48,6 +49,17 @@ export function registerIpc(state: AppState): void {
   ipcMain.handle(IpcChannel.WindowSetPinned, (_event, raw: unknown) => {
     const pinned = BooleanSchema.parse(raw);
     state.windowManager.setPinned(pinned);
+  });
+
+  ipcMain.handle(IpcChannel.WindowSetSnoozed, (_event, raw: unknown) => {
+    const snoozed = BooleanSchema.parse(raw);
+    // No broadcast: the renderer initiated this, so it's already updating
+    // its own UI. Broadcasting would loop SnoozeChanged back to it.
+    state.windowManager.setSnoozed(snoozed);
+    // Tray menu checkbox is stale until rebuilt — keep it in sync so the
+    // user can un-snooze from the tray after triggering snooze via the
+    // title-bar button.
+    state.trayHandle?.refresh();
   });
 
   ipcMain.handle(IpcChannel.WindowQuit, () => {
