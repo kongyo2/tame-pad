@@ -5,11 +5,15 @@ export const IpcChannel = {
   DraftSave: "draft:save",
   WindowSetExpanded: "window:set-expanded",
   WindowSetPinned: "window:set-pinned",
+  WindowSetSnoozed: "window:set-snoozed",
   WindowQuit: "window:quit",
   // Main → renderer broadcast when main initiates an expansion change
   // (e.g. window blur, second-instance) so the renderer can sync its
   // classList without calling back into main.
   ExpansionChanged: "window:expansion-changed",
+  // Main → renderer broadcast when main initiates a snooze change (e.g.
+  // tray menu toggle). Renderer mirrors classList and button state.
+  SnoozeChanged: "window:snooze-changed",
   // Renderer → main, fired once init() has wired all listeners (including
   // the ExpansionChanged subscriber). Main gates second-instance focus on
   // this so an early replay can't broadcast into a renderer that hasn't

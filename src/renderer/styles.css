@@ -10,6 +10,7 @@
   --button-active: #4b5b8f;
   --textarea-bg: #11151f;
   --strip: linear-gradient(180deg, #5b6cff 0%, #3b4cdc 100%);
+  --strip-snoozed: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
   --radius: 4px;
   --gap: 6px;
   --opacity-collapsed: 0.35;
@@ -52,12 +53,20 @@ body {
   inset: 0;
   background: var(--strip);
   opacity: var(--opacity-collapsed);
-  transition: opacity var(--transition-ms) ease;
+  transition:
+    opacity var(--transition-ms) ease,
+    background var(--transition-ms) ease;
   pointer-events: none;
 }
 
 #app.expanded .edge {
   opacity: 0;
+}
+
+/* Snoozed strip: same shape, gray gradient instead of the accent gradient,
+   so the user can see at a glance that the pad is in click-through mode. */
+#app.snoozed .edge {
+  background: var(--strip-snoozed);
 }
 
 .panel {
@@ -125,7 +134,8 @@ body {
   background: var(--button-active);
 }
 
-.pin-btn {
+.pin-btn,
+.snooze-btn {
   flex: 0 0 auto;
   width: 20px;
   height: 20px;
@@ -148,13 +158,15 @@ body {
     filter 100ms ease;
 }
 
-.pin-btn:hover {
+.pin-btn:hover,
+.snooze-btn:hover {
   background: var(--button-hover);
   border-color: var(--accent);
   opacity: 0.85;
 }
 
-.pin-btn:active {
+.pin-btn:active,
+.snooze-btn:active {
   background: var(--button-active);
 }
 
@@ -166,6 +178,21 @@ body {
 }
 
 .pin-btn.pinned:hover {
+  background: var(--accent);
+}
+
+/* Snoozed is a transient state seen briefly before the panel collapses
+   and the window goes click-through; the styling still matters because
+   the user may un-snooze via the tray, after which the panel can be
+   re-expanded by hover and the now-cleared button should look inactive. */
+.snooze-btn.snoozed {
+  opacity: 1;
+  filter: none;
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.snooze-btn.snoozed:hover {
   background: var(--accent);
 }
 

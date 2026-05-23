@@ -18,6 +18,8 @@ export type WindowManager = {
   isExpanded(): boolean;
   setPinned(pinned: boolean): void;
   isPinned(): boolean;
+  setSnoozed(snoozed: boolean, broadcast?: boolean): void;
+  isSnoozed(): boolean;
   applySettings(next: Settings): void;
   load(): Promise<void>;
 };
@@ -84,6 +86,7 @@ export function createMainWindow(settings: Settings): WindowManager {
 
   let expanded = false;
   let pinned = false;
+  let snoozed = false;
   const reposition = (width: number): void => {
     const targetDisplay = pickDisplay(current.monitorIndex);
     const wa = targetDisplay.workArea;
@@ -101,6 +104,27 @@ export function createMainWindow(settings: Settings): WindowManager {
     reposition(next ? current.expandedWidth : current.collapsedWidth);
     if (broadcast && !win.isDestroyed() && !win.webContents.isDestroyed()) {
       win.webContents.send(IpcChannel.ExpansionChanged, next);
+    }
+  };
+
+  const setSnoozed = (next: boolean, broadcast: boolean = false): void => {
+    if (snoozed === next) return;
+    snoozed = next;
+    // setIgnoreMouseEvents makes the entire window transparent to clicks,
+    // so the user can interact with whatever is rendered underneath
+    // (typically a scrollbar at the right edge). The renderer still draws
+    // the strip; the OS just routes mouse input past it.
+    if (!win.isDestroyed()) win.setIgnoreMouseEvents(next);
+    if (next) {
+      // Snooze and pin are opposites: pin says "stay open", snooze says
+      // "stay closed and don't react". Clear pin and force-collapse so
+      // the blur-uncollapse path doesn't fight the user. The renderer
+      // mirrors the pin clear when it receives SnoozeChanged(true).
+      pinned = false;
+      setExpanded(false, true);
+    }
+    if (broadcast && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(IpcChannel.SnoozeChanged, next);
     }
   };
 
@@ -132,6 +156,8 @@ export function createMainWindow(settings: Settings): WindowManager {
       pinned = next;
     },
     isPinned: () => pinned,
+    setSnoozed,
+    isSnoozed: () => snoozed,
     applySettings,
     load,
   };

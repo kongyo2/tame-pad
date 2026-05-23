@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain, type Tray } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { loadSettings, saveSettings } from "./settings";
 import { createMainWindow, type WindowManager } from "./window";
-import { createTray } from "./tray";
+import { createTray, type TrayHandle } from "./tray";
 import { registerIpc, unregisterIpc } from "./ipc";
 import { quitState } from "./quit-state";
 import { IpcChannel } from "../shared/ipc";
@@ -14,7 +14,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let appState: AppState | undefined;
-let tray: Tray | undefined;
+let trayHandle: TrayHandle | undefined;
 let bootstrapping = false;
 let pendingSecondInstance = false;
 let rendererReady = false;
@@ -86,7 +86,19 @@ async function bootstrap(): Promise<void> {
     // server unreachable, missing asset, etc.), the catch below tears down
     // the partial state so a later activate event can retry bootstrap.
     appState = candidateState;
-    tray = createTray();
+    const publishedState = appState;
+    trayHandle = createTray({
+      isSnoozed: () => publishedState.windowManager.isSnoozed(),
+      toggleSnooze: () => {
+        const next = !publishedState.windowManager.isSnoozed();
+        // broadcast=true so the renderer mirrors classList + button state.
+        publishedState.windowManager.setSnoozed(next, true);
+        trayHandle?.refresh();
+      },
+    });
+    // Expose to ipc handlers so renderer-initiated snooze can refresh
+    // the tray checkbox.
+    appState.trayHandle = trayHandle;
 
     // Windows shutdown / restart / logout does NOT emit app 'before-quit',
     // but BrowserWindow emits 'session-end' on the platform. Best-effort
@@ -177,9 +189,9 @@ function gracefulShutdown(): void {
   quitState.quitting = true;
   const work = appState ? flushDraftFromRenderer(appState) : Promise.resolve();
   void work.finally(() => {
-    if (tray !== undefined) {
-      tray.destroy();
-      tray = undefined;
+    if (trayHandle !== undefined) {
+      trayHandle.destroy();
+      trayHandle = undefined;
     }
     app.quit();
   });
