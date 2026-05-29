@@ -20,6 +20,14 @@ export const SETTINGS_HELP: Readonly<Record<string, string>> = {
     "マウスがパネルを離れてから折りたたむまでの遅延 (ms / 0〜5000)",
   autosaveDebounceMs: "下書きの自動保存ディレイ (ms / 50〜5000)",
   fontSizePx: "テキストエリアのフォントサイズ (px / 8〜48)",
+  edgeGrip:
+    "折りたたみストリップの中央に『つまみ』マーカーを表示し、ただの線ではなく操作できるUIだと分かりやすくする (true=表示 / false=非表示)",
+  idlePulse:
+    "一定時間操作がないと端のストリップを数回ゆっくり明滅させて存在を知らせる (true=有効 / false=無効)",
+  idlePulseDelayMs:
+    "最後の操作からこの時間が過ぎたら明滅を始める (ms / 5000〜3600000 ・ 既定120000=2分)",
+  idlePulsePeakOpacity:
+    "明滅ピーク時の不透明度 (0.3〜1.0 / opacityCollapsed より大きくすると光って気付きやすい)",
   draftText: "保存された下書き本文 (アプリが自動で更新するので手動編集は不要)",
 };
 
@@ -44,6 +52,15 @@ export const SettingsSchema = z
     collapseDelayMs: z.number().int().min(0).max(5000).default(250),
     autosaveDebounceMs: z.number().int().min(50).max(5000).default(400),
     fontSizePx: z.number().int().min(8).max(48).default(14),
+    edgeGrip: z.boolean().default(true),
+    idlePulse: z.boolean().default(true),
+    idlePulseDelayMs: z
+      .number()
+      .int()
+      .min(5000)
+      .max(3_600_000)
+      .default(120_000),
+    idlePulsePeakOpacity: z.number().min(0.3).max(1).default(0.85),
     draftText: z.string().default(""),
   })
   .passthrough();

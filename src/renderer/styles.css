@@ -17,6 +17,10 @@
   --opacity-expanded: 1;
   --transition-ms: 100ms;
   --font-size-px: 14px;
+  /* Idle attention pulse: peak opacity is overridden from settings at
+     runtime; period/count are fixed so the breathing stays gentle. */
+  --idle-pulse-peak: 0.85;
+  --idle-pulse-period: 2400ms;
 }
 
 * {
@@ -48,25 +52,86 @@ body {
   height: 100%;
 }
 
-.edge {
+/* The collapsed edge strip. Opacity lives on the wrapper so the idle pulse
+   can breathe the whole strip (fill + grip) as one unit; the fill carries
+   the gradient and the grip is a brighter centered handle on top of it. */
+.strip {
   position: absolute;
   inset: 0;
-  background: var(--strip);
   opacity: var(--opacity-collapsed);
-  transition:
-    opacity var(--transition-ms) ease,
-    background var(--transition-ms) ease;
+  transition: opacity var(--transition-ms) ease;
   pointer-events: none;
 }
 
-#app.expanded .edge {
+.strip-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--strip);
+  transition: background var(--transition-ms) ease;
+}
+
+/* A small handle marker centered vertically on the strip. It makes the
+   thin line read as an interactive affordance ("there's a pad here") rather
+   than a stray colored edge, which is the whole point of keeping the app
+   from being forgotten. Brighter than the gradient so it stands out within
+   the strip's own (low) collapsed opacity. */
+.strip-grip {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 40px;
+  border-radius: 3px 0 0 3px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+#app.no-grip .strip-grip {
+  display: none;
+}
+
+#app.expanded .strip {
   opacity: 0;
 }
 
 /* Snoozed strip: same shape, gray gradient instead of the accent gradient,
-   so the user can see at a glance that the pad is in click-through mode. */
-#app.snoozed .edge {
+   so the user can see at a glance that the pad is in click-through mode.
+   The grip is hidden because snooze means "don't invite interaction". */
+#app.snoozed .strip-fill {
   background: var(--strip-snoozed);
+}
+
+#app.snoozed .strip-grip {
+  display: none;
+}
+
+/* Idle attention pulse. Runs only while collapsed (the renderer adds
+   .pulsing to #strip after a configurable idle delay and removes it after a
+   short burst). Breathing motion is what peripheral vision catches, so the
+   reminder works even when the user is heads-down in another window. */
+.strip.pulsing {
+  animation: idle-breathe var(--idle-pulse-period) ease-in-out 3;
+}
+
+@keyframes idle-breathe {
+  0%,
+  100% {
+    opacity: var(--opacity-collapsed);
+  }
+  50% {
+    opacity: var(--idle-pulse-peak);
+  }
+}
+
+/* Respect reduced-motion: skip the oscillation but still surface the strip
+   by holding it at the brighter peak for the burst window (the renderer
+   removes .pulsing on the same timer regardless of animation support). */
+@media (prefers-reduced-motion: reduce) {
+  .strip.pulsing {
+    animation: none;
+    opacity: var(--idle-pulse-peak);
+  }
 }
 
 .panel {

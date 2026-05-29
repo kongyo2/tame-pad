@@ -14,6 +14,7 @@ function byId<T extends HTMLElement>(id: string): T {
 }
 
 const app = byId<HTMLDivElement>("app");
+const strip = byId<HTMLDivElement>("strip");
 const pad = byId<HTMLTextAreaElement>("pad");
 const copyBtn = byId<HTMLButtonElement>("copy");
 const clearBtn = byId<HTMLButtonElement>("clear");
@@ -23,12 +24,23 @@ const snoozeBtn = byId<HTMLButtonElement>("snooze");
 const convertNewlinesEl = byId<HTMLInputElement>("convertNewlines");
 const toast = byId<HTMLDivElement>("toast");
 
+// One idle-pulse burst is PULSE_COUNT breaths of var(--idle-pulse-period).
+// Kept in sync with styles.css (.strip.pulsing animation) so the JS timer
+// that ends the burst matches the CSS animation length. The +120ms guard
+// makes the timer outlast the animation so the strip settles back to its
+// resting opacity before we re-arm.
+const PULSE_PERIOD_MS = 2400;
+const PULSE_COUNT = 3;
+const PULSE_BURST_MS = PULSE_PERIOD_MS * PULSE_COUNT + 120;
+
 type RuntimeState = {
   settings: Settings;
   expandTimer: number | undefined;
   collapseTimer: number | undefined;
   saveTimer: number | undefined;
   toastTimer: number | undefined;
+  idleTimer: number | undefined;
+  pulseEndTimer: number | undefined;
   imeComposing: boolean;
   pinned: boolean;
   snoozed: boolean;
@@ -40,6 +52,8 @@ const state: RuntimeState = {
   collapseTimer: undefined,
   saveTimer: undefined,
   toastTimer: undefined,
+  idleTimer: undefined,
+  pulseEndTimer: undefined,
   imeComposing: false,
   pinned: false,
   snoozed: false,
@@ -67,15 +81,24 @@ function applyVisualSettings(): void {
     String(state.settings.opacityExpanded),
   );
   root.style.setProperty("--transition-ms", `${state.settings.transitionMs}ms`);
+  root.style.setProperty(
+    "--idle-pulse-peak",
+    String(state.settings.idlePulsePeakOpacity),
+  );
 }
 
 function applyExpandedClass(expanded: boolean): void {
   if (expanded) {
     app.classList.remove("collapsed");
     app.classList.add("expanded");
+    // Expanded = the user can already see the pad; the idle reminder has
+    // nothing to remind about. Stop any pulse and pause the countdown.
+    cancelIdle();
   } else {
     app.classList.remove("expanded");
     app.classList.add("collapsed");
+    // Back to a thin strip: start counting toward the next idle pulse.
+    armIdle();
   }
 }
 
@@ -136,11 +159,24 @@ function applySnoozedState(snoozed: boolean): void {
       applyPinnedUi(false);
     }
     clearExpansionTimers();
+    // Stop the pulse before applyExpandedClass(false): a click-through,
+    // "leave me alone" strip should never blink, and armIdle would no-op
+    // anyway while snoozed.
+    cancelIdle();
     applyExpandedClass(false);
+  } else {
+    // Un-snoozed and (always, here) collapsed: resume counting toward the
+    // next reminder. applyExpandedClass isn't called on this branch, so arm
+    // explicitly.
+    armIdle();
   }
 }
 
 function requestExpand(): void {
+  // Any hover is an interaction: kill an in-flight pulse immediately and
+  // reset the idle countdown, even if we don't end up expanding (snoozed,
+  // or already expanded) below.
+  cancelIdle();
   state.collapseTimer = clearTimer(state.collapseTimer);
   // Snooze means "stay collapsed and ignore mouse"; the window is
   // already click-through, but a queued mouseenter (from before the
@@ -162,6 +198,62 @@ function requestCollapse(): void {
     if (shouldHoldOpen()) return;
     setExpandedNow(false);
   }, state.settings.collapseDelayMs);
+}
+
+// --- Idle attention pulse ---------------------------------------------------
+// When the collapsed strip sits untouched for a while it's easy to forget the
+// pad is even running. After settings.idlePulseDelayMs of no interaction we
+// run a short, gentle breathing burst on the strip to draw the eye, then go
+// quiet and re-arm. Any interaction (hover/focus/expand) or snooze cancels it.
+
+function stopPulse(): void {
+  state.pulseEndTimer = clearTimer(state.pulseEndTimer);
+  strip.classList.remove("pulsing");
+}
+
+// Cancel both the scheduled countdown and any in-flight pulse. Used whenever
+// the strip stops being a quiet, collapsed reminder target.
+function cancelIdle(): void {
+  state.idleTimer = clearTimer(state.idleTimer);
+  stopPulse();
+}
+
+// (Re)start the idle countdown. Safe to call from any transition: onIdle
+// re-checks conditions when it fires and reschedules itself if the moment
+// isn't right, so callers don't have to reason about current state.
+function armIdle(): void {
+  state.idleTimer = clearTimer(state.idleTimer);
+  if (!state.settings.idlePulse || state.snoozed) return;
+  state.idleTimer = window.setTimeout(onIdle, state.settings.idlePulseDelayMs);
+}
+
+function onIdle(): void {
+  state.idleTimer = undefined;
+  if (!state.settings.idlePulse || state.snoozed) return;
+  // Pulsing an open/pinned/focused pad is pointless — it's already visible.
+  // Wait out another interval instead of nagging.
+  if (isExpanded() || state.pinned || isPadFocused()) {
+    armIdle();
+    return;
+  }
+  startPulse();
+}
+
+function startPulse(): void {
+  stopPulse();
+  // Force a reflow so re-adding the class restarts the CSS animation from 0%
+  // even if a previous burst just ended on the same frame.
+  void strip.offsetWidth;
+  strip.classList.add("pulsing");
+  // End the burst on a timer rather than the animationend event: under
+  // prefers-reduced-motion the animation is disabled (no animationend), but
+  // the strip is still held at peak opacity for this window and must be
+  // released and re-armed the same way.
+  state.pulseEndTimer = window.setTimeout(() => {
+    state.pulseEndTimer = undefined;
+    strip.classList.remove("pulsing");
+    armIdle();
+  }, PULSE_BURST_MS);
 }
 
 function showToast(message: string): void {
@@ -192,7 +284,12 @@ function flushAutosave(): void {
 
 function wireEvents(): void {
   document.body.addEventListener("mouseenter", requestExpand);
-  document.body.addEventListener("mouseleave", requestCollapse);
+  document.body.addEventListener("mouseleave", () => {
+    requestCollapse();
+    // A hover that never triggered expansion produces no collapse event, so
+    // re-arm here too; armIdle is a no-op-safe reset in every other case.
+    armIdle();
+  });
 
   pad.addEventListener("focus", () => {
     state.collapseTimer = clearTimer(state.collapseTimer);
@@ -285,7 +382,12 @@ async function init(): Promise<void> {
   convertNewlinesEl.checked = state.settings.convertNewlines;
   pad.value = state.settings.draftText;
   applyVisualSettings();
+  app.classList.toggle("no-grip", !state.settings.edgeGrip);
   wireEvents();
+  // Start counting toward the first idle pulse from launch (the app boots
+  // collapsed), so a freshly started pad that's left untouched still reminds
+  // the user it's there.
+  armIdle();
   // Register the DraftQuery responder only AFTER pad.value has been
   // populated from settings.draftText. If shutdown races with bootstrap
   // and we registered earlier, we'd reply with an empty pad.value and
