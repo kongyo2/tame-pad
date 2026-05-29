@@ -59,6 +59,11 @@ export function createMainWindow(settings: Settings): WindowManager {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
+      // The idle attention pulse runs while the user is working in another
+      // window (i.e. this one is unfocused). Chromium throttles background
+      // timers by default, which would delay or stall the pulse exactly when
+      // it's needed, so keep this window's timers running at full rate.
+      backgroundThrottling: false,
     },
   });
 
